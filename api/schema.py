@@ -3,18 +3,20 @@ from graphene_django import DjangoObjectType
 from .models import posts
 from django.contrib.auth import get_user_model
 
-class postsTybe(DjangoObjectType):
-    class Meta:
-        model = posts
-
 class UserTybe(DjangoObjectType):
     class Meta :
         model = get_user_model()
 
+class postsTybe(DjangoObjectType):
+    # posted_by = graphene.Field(UserTybe)
+    class Meta:
+        model = posts
+
 class Query(graphene.ObjectType):
-    posts = graphene.List(postsTybe)
+    posts = graphene.List(postsTybe,first=graphene.Int(), skip=graphene.Int())
 
     me = graphene.Field(UserTybe)
+
     users = graphene.List(UserTybe)
 
     def resolve_users(self, info):
@@ -28,13 +30,22 @@ class Query(graphene.ObjectType):
         return user
 
 
-    def resolve_posts(self, info,**kwargs):
-        return posts.objects.all()
+    def resolve_posts(self, info, first=None, skip=None,**kwargs):
+        qs = posts.objects.all()
+        if skip:
+            qs = qs[skip:]
+
+        if first:
+            qs = qs[:first]
+
+        return qs
 
 class Createposts(graphene.Mutation):
-    id = graphene.Int()
-    title = graphene.String()
-    body = graphene.String()
+    # id = graphene.Int()
+    # title = graphene.String()
+    # body = graphene.String()
+    # posted_by = graphene.Field(UserTybe)
+    post = graphene.Field(postsTybe)
 
     #2
     class Arguments:
@@ -43,15 +54,17 @@ class Createposts(graphene.Mutation):
 
     #3
     def mutate(self, info, title, body):
-        post = posts(title=title, body=body)
+        user = info.context.user
+        post = posts(title=title, body=body, posted_by=user)
         post.save()
 
-        return Createposts(
-            id=post.id,
-            title=post.title,
-            body=post.body,
-        )
-
+        # return Createposts(
+        #     id=post.id,
+        #     title=post.title,
+        #     body=post.body,
+        #     posted_by = user
+        # )
+        return Createposts(post)
 
 
 ### USERS
